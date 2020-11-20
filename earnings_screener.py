@@ -141,9 +141,9 @@ def run_screener(start_date, end_date):
     print(start_date, end_date)
     filename = start_date.replace('-','')+'_'+end_date.replace('-','')+'.csv' #start_date.strftime('%Y%m%d')+'_'+end_date.strftime('%Y%m%d')+'.csv'
 
-    if os.path.exists(filename):
+    if os.path.exists('data/'+filename):
         print(filename, ' exists')
-        data = pd.read_csv(filename)
+        data = pd.read_csv('data/'+filename)
         return data, 'loaded: ' + str(filename)
 
     earnings = get_earnings_calendar(start_date, end_date)
@@ -179,7 +179,7 @@ def run_screener(start_date, end_date):
     msg = str(num_matched) + ' screened from ' + str(num_earnings) + ' earnings'
 
     data_df = pd.DataFrame.from_dict(tickers_first_filter, orient='index')
-    data_df.to_csv(filename)
+    data_df.to_csv('data/'+filename)
 
     return data_df, msg
 
@@ -251,4 +251,4 @@ def update_output(start_date, end_date):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port='8050')
