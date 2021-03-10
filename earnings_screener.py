@@ -18,11 +18,11 @@ import numpy as np
 def screen_earnings(d, start_date, end_date, tickers_first_filter):
 
     # first filter params #
-    minprice = 10.
-    maxprice = 100.
+    minprice = 5.
+    maxprice = 150.
     minmcap = 300e6
-    minavgvol = 300000
-    minvol = 300000
+    maxmcap = 10e9
+    minavgvol = 100000
     ## ##
 
     ## yf info dict keys ##
@@ -68,18 +68,21 @@ def screen_earnings(d, start_date, end_date, tickers_first_filter):
         ma50 = info['fiftyDayAverage']
         avgvol = info['averageVolume']
         vol = info['volume']
-        if (close >= minprice) and (close <= maxprice) and (mcap >= minmcap) and (close >= ma200) and (
-                close >= ma50) \
-                and (avgvol >= minavgvol) and (vol >= minvol):
+        if (close >= minprice) and (close <= maxprice) and (mcap >= minmcap) and (mcap <= maxmcap) and (close >= ma200) \
+                and (close >= ma50) and (avgvol >= minavgvol):
             # tickers_first_filter.append(ticker)
             print(ticker, 'MEETS CRITERIA')
             earn_date = dt.datetime.strptime(earn['startdatetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
             date_str = earn_date.strftime('%Y-%m-%d')
             prev_close = info['previousClose']
+            fiftytwo_whi = check_round(info['fiftyTwoWeekHigh'])
+            fiftytwo_wlo = check_round(info['fiftyTwoWeekLow'])
             #print(prev_close, open, ma50, ma200)
-            day_pct_change = ((open - prev_close) / prev_close) * 100.
-            pct_of_50dma = ((open - ma50) / ma50) * 100.
-            pct_of_200dma = ((open - ma200) / ma200) * 100.
+            day_pct_change = ((prev_close - open) / open) * 100.
+            pct_of_50dma = ((close - ma50) / ma50) * 100.
+            pct_of_200dma = ((close - ma200) / ma200) * 100.
+            pct_of_52whi = ((close - fiftytwo_whi) / fiftytwo_whi) * 100.
+            pct_of_52wlo = ((close - fiftytwo_wlo) / fiftytwo_whi) * 100.
             #print(day_pct_change, pct_of_50dma, pct_of_200dma)
             tickers_first_filter[d[0]] = {'Date': date_str,
                                             'Ticker': ticker,
@@ -97,13 +100,15 @@ def screen_earnings(d, start_date, end_date, tickers_first_filter):
                                             'Forward EPS': check_round(info['forwardEps']),
                                             'EPS QoQ': check_round(info['earningsQuarterlyGrowth']),
                                             'Rev. Q Growth': check_round(info['revenueQuarterlyGrowth']),
+                                            'Profit Marg.': check_round(info['profitMargins']),
                                             '% Inst. Holdings': check_round(info['heldPercentInstitutions']),
                                             '% of 200DMA': check_round(pct_of_200dma),
                                             '% of 50DMA': check_round(pct_of_50dma),
-                                            'Forward PE': check_round(info['forwardPE']),
+                                            #'Forward PE': check_round(info['forwardPE']),
                                             'Float [M]': check_round(info['floatShares']) / 1e6,
                                             '% Short Float': check_round(info['shortPercentOfFloat']),
-                                            '52W High': check_round(info['fiftyTwoWeekHigh'])
+                                            '% off 52W High': check_round(pct_of_52whi),
+                                            '% of 52W Low': check_round(pct_of_52wlo)
                                           }
     except Exception as e:
         print('error checking ticker: ', ticker, e)
@@ -113,7 +118,7 @@ def screen_earnings(d, start_date, end_date, tickers_first_filter):
 def check_round(val):
 
     if val is None:
-        return 0
+        return ''
 
     return np.round(val, 2)
 
@@ -188,6 +193,8 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 #df = pd.read_csv('20201124_20201125.csv')
 
+current_date = dt.datetime.now()
+
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.layout = html.Div([
 
@@ -195,7 +202,7 @@ app.layout = html.Div([
 
     dcc.DatePickerRange(
         id='my-date-picker-range',
-        min_date_allowed=date(2020, 11, 1),
+        min_date_allowed=date(current_date.year, current_date.month, current_date.day),
         max_date_allowed=date(2022, 12, 31),
         display_format='DD-MM-YYYY'
     ),
@@ -221,6 +228,7 @@ app.layout = html.Div([
      Input('my-date-picker-range', 'end_date')])
 def update_output(start_date, end_date):
     selected_dates = 'SELECT DATES'
+    prev_start, prev_end = None, None
     if (start_date is not None) and (end_date is not None):
         #start_date_object = date.fromisoformat(start_date)
         #start_date_string = start_date.strftime('%Y-%m-%d')
@@ -232,6 +240,8 @@ def update_output(start_date, end_date):
     if len(selected_dates) == len('SELECT DATES'):
         raise PreventUpdate
         #return '', pd.DataFrame({})
+    if (prev_start == start_date) or (prev_end == end_date):
+        raise PreventUpdate
     else:
         data, msg = run_screener(start_date, end_date)
         if data is None:
@@ -246,6 +256,8 @@ def update_output(start_date, end_date):
             columns=[{"name": i, "id": i} for i in data.columns],
             data=data.to_dict('records')
         )
+
+        prev_start, prev_end = start_date, end_date
 
         return table, '', msg
 
