@@ -4,6 +4,14 @@ This code uses the [Yahoo Earnings Calender](https://pypi.org/project/yahoo-earn
 
 **Due to dependencies on 3rd party packages this may break at times if Yahoo modify their website and the scarpers in the dependencies are not updated.**
 
+**This repository is for archive purposes only and will not be updated. You may still find some of the code useful for your own project.**
+
+Install the requirements:
+
+```
+pip install -r requirements.txt
+```
+
 Simply select the start and end date to screen for, enter some basic filter criteria in `filters.yaml` which currently uses:
 
 * Minimum price: `minprice`
