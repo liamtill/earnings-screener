@@ -5,24 +5,26 @@ import multiprocessing as mp
 from itertools import repeat
 from datetime import date
 import dash
-import dash_html_components as html
-import dash_core_components as dcc
-import dash_table
+from dash import html
+from dash import dcc
+from dash import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import pandas as pd
 import os
 import numpy as np
+import yaml
+import sys
 
 
 def screen_earnings(d, start_date, end_date, tickers_first_filter):
 
     # first filter params #
-    minprice = 5.
-    maxprice = 150.
-    minmcap = 300e6
-    maxmcap = 10e9
-    minavgvol = 100000
+    minprice = float(filters['minprice'])
+    maxprice = float(filters['maxprice'])
+    minmcap = float(filters['minmcap'])
+    maxmcap = float(filters['maxmcap'])
+    minavgvol = float(filters['minavgvol'])
     ## ##
 
     ## yf info dict keys ##
@@ -49,18 +51,12 @@ def screen_earnings(d, start_date, end_date, tickers_first_filter):
     #           'regularMarketPrice', 'logo_url'])
     ## ##
 
-    ## loop over list
-    #for d in earnings:
     earn = d[1]
     ticker = earn['ticker']
     print("Checking: ", ticker)
     try:
         share = yf.Ticker(ticker)
         info = share.info
-        # print(ticker)
-        # print(share.info)
-        #data = yf.download(ticker, start=start_date, end=end_date)
-        #close = np.round(data['Adj Close'][start_date], 2)
         open = info['open']
         close = info['previousClose']
         mcap = info['marketCap']
@@ -135,9 +131,7 @@ def get_earnings_calendar(start_date, end_date):
     try:
         earnings = yec.earnings_between(date_from, date_to)
     except Exception as e:
-        #print('error fetching earnings: ', e)
         return 'error fetching earnings: ' + str(e)
-        #raise PreventUpdate
     return earnings
 
 
@@ -161,9 +155,6 @@ def run_screener(start_date, end_date):
     manager = mp.Manager()
     tickers_first_filter = manager.dict()
 
-    # dict to store tickers from initial filtering
-    # tickers_first_filter = {}
-
     # set up processing pool
     mp.freeze_support()
     pool = mp.Pool(processes=20)
@@ -179,7 +170,6 @@ def run_screener(start_date, end_date):
 
     num_matched = len(tickers_first_filter.keys())
     print('Number of earnings filtered: ', num_matched)
-    #print(tickers_first_filter)
 
     msg = str(num_matched) + ' screened from ' + str(num_earnings) + ' earnings'
 
@@ -191,7 +181,9 @@ def run_screener(start_date, end_date):
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-#df = pd.read_csv('20201124_20201125.csv')
+# load filter config
+with open('filters.yaml', 'r') as file:
+    filters = yaml.safe_load(file)
 
 current_date = dt.datetime.now()
 
@@ -203,7 +195,7 @@ app.layout = html.Div([
     dcc.DatePickerRange(
         id='my-date-picker-range',
         min_date_allowed=date(current_date.year, current_date.month, current_date.day),
-        max_date_allowed=date(2022, 12, 31),
+        max_date_allowed=date(2050, 12, 31),
         display_format='DD-MM-YYYY'
     ),
     html.Div(id='output-container-date-picker-range'),
@@ -230,25 +222,17 @@ def update_output(start_date, end_date):
     selected_dates = 'SELECT DATES'
     prev_start, prev_end = None, None
     if (start_date is not None) and (end_date is not None):
-        #start_date_object = date.fromisoformat(start_date)
-        #start_date_string = start_date.strftime('%Y-%m-%d')
         selected_dates = 'Start Date: ' + start_date + ' | ' + 'End Date: ' + end_date
-    #if end_date is not None:
-        #end_date_object = date.fromisoformat(end_date)
-        #end_date_string = end_date.strftime('%Y-%m-%d')
-    #    string_prefix = string_prefix + 'End Date: ' + end_date
+
     if len(selected_dates) == len('SELECT DATES'):
         raise PreventUpdate
-        #return '', pd.DataFrame({})
     if (prev_start == start_date) or (prev_end == end_date):
         raise PreventUpdate
     else:
         data, msg = run_screener(start_date, end_date)
         if data is None:
             return None, '', msg
-            #raise PreventUpdate
-        #return selected_dates, data
-        #return data
+
         table = dash_table.DataTable(
             id='table',
             sort_action="native",

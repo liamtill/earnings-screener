@@ -1,0 +1,5 @@
+minprice: 5
+maxprice: 150
+minmcap: 300e6
+maxmcap: 10e9
+minavgvol: 100000
